@@ -40,6 +40,7 @@ func init() {
 
 	games = map[int][](chan message){}
 	players = map[int]player{}
+	serverCh = make(chan message)
 }
 
 func main() {
@@ -70,6 +71,8 @@ func main() {
 			}
 		}
 	}()
+
+	select {}
 }
 
 // IndexHandler returns a static status 200 to verify server is running
