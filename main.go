@@ -34,6 +34,7 @@ var games map[int][](chan message)
 var players map[int]player
 
 var serverCh chan message
+var hostCh chan message
 
 func init() {
 	rand.Seed(time.Now().Unix())
@@ -48,6 +49,8 @@ func main() {
 	r.HandleFunc("/", IndexHandler).Methods("GET")
 	r.HandleFunc("/host", HostCreateHandler).Methods("POST")
 	r.HandleFunc("/host/{id}", HostListenHandler).Methods("GET")
+	r.HandleFunc("/host/{id}/reset", HostResetHandler).Methods("POST")
+	r.HandleFunc("/host/{id}/lock", HostLockHandler).Methods("POST")
 	r.HandleFunc("/play/{id}", PlayHandler).Methods("GET")
 	r.HandleFunc("/play/{id}/buzz", BuzzHandler).Methods("POST")
 
@@ -66,6 +69,7 @@ func main() {
 			case msg, _ := <-serverCh:
 				log.Printf("msg received: %v", msg)
 				for _, clientCh := range games[msg.GameID] {
+					log.Printf("sending %s to %d", msg.Action, msg.GameID)
 					clientCh <- msg
 				}
 			}
@@ -92,6 +96,64 @@ func BuzzHandler(w http.ResponseWriter, r *http.Request) {
 
 	serverCh <- clientMsg
 	log.Printf("sent to client channel")
+	w.WriteHeader(http.StatusCreated)
+}
+
+func HostLockHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Got connection: %s", r.Proto)
+
+	// grab the game id from the path
+	params := mux.Vars(r)
+	id, ok := params["id"]
+	if !ok {
+		http.Error(w, "no 'id' found in URL", http.StatusBadRequest)
+		return
+	}
+
+	// convert to an int
+	i, err := strconv.Atoi(id)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, fmt.Sprintf("failed to convert game id [%s] to int", id), http.StatusInternalServerError)
+		return
+	}
+
+	lockToggleMsg := message{
+		GameID: i,
+		Action: "lock",
+	}
+
+	serverCh <- lockToggleMsg
+
+	w.WriteHeader(http.StatusCreated)
+}
+
+func HostResetHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Got connection: %s", r.Proto)
+
+	// grab the game id from the path
+	params := mux.Vars(r)
+	id, ok := params["id"]
+	if !ok {
+		http.Error(w, "no 'id' found in URL", http.StatusBadRequest)
+		return
+	}
+
+	// convert to an int
+	i, err := strconv.Atoi(id)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, fmt.Sprintf("failed to convert game id [%s] to int", id), http.StatusInternalServerError)
+		return
+	}
+
+	resetMsg := message{
+		GameID: i,
+		Action: "reset",
+	}
+
+	serverCh <- resetMsg
+
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -195,11 +257,12 @@ func PlayHandler(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		msg := <-thisClientCh
+
 		resp := map[string]interface{}{
 			"time":       time.Now().Local().String(),
-			"gameID":     i,
-			"playerID":   playerID,
-			"playerName": playerName,
+			"gameID":     msg.GameID,
+			"playerID":   msg.PlayerID,
+			"playerName": players[msg.PlayerID].Name,
 			"action":     msg.Action,
 		}
 		jsonBytes, err := json.Marshal(resp)
