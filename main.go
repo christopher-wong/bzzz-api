@@ -32,6 +32,7 @@ type message struct {
 
 var games map[int][](chan message)
 var players map[int]player
+var hosts map[int]chan message
 
 var serverCh chan message
 var hostCh chan message
@@ -41,7 +42,10 @@ func init() {
 
 	games = map[int][](chan message){}
 	players = map[int]player{}
+	hosts = map[int]chan message{}
+
 	serverCh = make(chan message)
+	hostCh = make(chan message)
 }
 
 func main() {
@@ -60,6 +64,7 @@ func main() {
 		http.ListenAndServeTLS(":8080", "server.crt", "server.key", corsH(r))
 	}()
 
+	// broadcast to clients
 	go func() {
 		// select from the server channel forever
 		// when a message comes in, grab it's game ID, and grab the client channels
@@ -67,11 +72,22 @@ func main() {
 		for {
 			select {
 			case msg, _ := <-serverCh:
-				log.Printf("msg received: %v", msg)
+				log.Printf("client msg received: %v", msg)
 				for _, clientCh := range games[msg.GameID] {
-					log.Printf("sending %s to %d", msg.Action, msg.GameID)
 					clientCh <- msg
 				}
+			}
+		}
+	}()
+
+	// broadcast to hosts
+	go func() {
+		for {
+			select {
+			case msg, _ := <-hostCh:
+				log.Printf("host msg received: %v", msg)
+
+				hosts[msg.GameID] <- msg
 			}
 		}
 	}()
@@ -95,7 +111,8 @@ func BuzzHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%v", clientMsg)
 
 	serverCh <- clientMsg
-	log.Printf("sent to client channel")
+	hostCh <- clientMsg
+
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -169,6 +186,7 @@ func HostCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	games[gameCode] = []chan message{}
+	hosts[gameCode] = make(chan message)
 
 	log.Printf("creating game: %d", gameCode)
 
@@ -255,6 +273,12 @@ func PlayHandler(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 	// end initial message
 
+	hostCh <- message{
+		GameID:   i,
+		PlayerID: playerID,
+		Action:   "joined",
+	}
+
 	for {
 		msg := <-thisClientCh
 
@@ -315,9 +339,14 @@ func HostListenHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("HOST listening to game to game: %d", i)
 
 	for {
+		msg := <-hosts[i]
+
 		resp := map[string]interface{}{
-			"gameID": i,
-			"time":   time.Now().Local().String(),
+			"time":       time.Now().Local().String(),
+			"gameID":     msg.GameID,
+			"playeID":    msg.PlayerID,
+			"playerName": players[msg.PlayerID].Name,
+			"action":     msg.Action,
 		}
 		jsonBytes, err := json.Marshal(resp)
 		if err != nil {
@@ -327,6 +356,5 @@ func HostListenHandler(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Fprintf(w, "data: %s\n\n", string(jsonBytes))
 		flusher.Flush()
-		<-time.After(time.Second)
 	}
 }
