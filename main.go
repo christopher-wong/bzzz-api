@@ -25,9 +25,9 @@ type player struct {
 }
 
 type message struct {
-	GameID   int    `json:"gameID"`
-	PlayerID int    `json:"playerID"`
-	Action   string `json:"action"`
+	GameID   int    `json:"gameID,omitempty"`
+	PlayerID int    `json:"playerID,omitempty"`
+	Action   string `json:"action,omitempty"`
 }
 
 var games map[int][](chan message)
@@ -75,6 +75,12 @@ func main() {
 				log.Printf("client msg received: %v", msg)
 				for _, clientCh := range games[msg.GameID] {
 					clientCh <- msg
+				}
+
+				if msg.Action == "disconnect" {
+					delete(hosts, msg.GameID)
+					delete(games, msg.GameID)
+					log.Println("game ended")
 				}
 			}
 		}
@@ -321,6 +327,8 @@ func PlayHandler(w http.ResponseWriter, r *http.Request) {
 func HostListenHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Got connection: %s", r.Proto)
 
+	notify := w.(http.CloseNotifier).CloseNotify()
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
@@ -351,6 +359,16 @@ func HostListenHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("game id [%s] not found", id), http.StatusBadRequest)
 		return
 	}
+
+	go func() {
+		<-notify
+		// close(thisClientCh)
+		// we need to close this client's channel and remove it to avoid creating a leak.
+		serverCh <- message{
+			GameID: i,
+			Action: "disconnect",
+		}
+	}()
 
 	log.Printf("HOST listening to game to game: %d", i)
 
