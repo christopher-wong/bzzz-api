@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bzzz-api
+  namespace: default
+  labels:
+    app: bzzz-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bzzz-api
+  template:
+    metadata:
+      labels:
+        app: bzzz-api
+    spec:
+      imagePullSecrets:
+      - name: do-registry
+      containers:
+      - name: bzzz-api
+        image: registry.digitalocean.com/teslatrack/bzzz-api:0.0.1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080

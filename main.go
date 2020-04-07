@@ -199,6 +199,8 @@ func HostCreateHandler(w http.ResponseWriter, r *http.Request) {
 func PlayHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Got connection: %s", r.Proto)
 
+	notify := w.(http.CloseNotifier).CloseNotify()
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
@@ -255,7 +257,19 @@ func PlayHandler(w http.ResponseWriter, r *http.Request) {
 	thisClientCh := make(chan message)
 	games[i] = append(games[i], thisClientCh)
 
-	// send initial messag
+	go func() {
+		<-notify
+		// close(thisClientCh)
+		// we need to close this client's channel and remove it to avoid creating a leak.
+		hostCh <- message{
+			GameID:   i,
+			PlayerID: playerID,
+			Action:   "disconnect",
+		}
+		log.Println("disconnect")
+	}()
+
+	// send initial message
 	resp := map[string]interface{}{
 		"time":       time.Now().Local().String(),
 		"gameID":     i,
@@ -299,6 +313,8 @@ func PlayHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "data: %s\n\n", string(jsonBytes))
 		flusher.Flush()
 	}
+
+	log.Println("connection closed")
 }
 
 // HostListenHandler establishes a stream and sends SSE related to host features.
@@ -344,7 +360,7 @@ func HostListenHandler(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]interface{}{
 			"time":       time.Now().Local().String(),
 			"gameID":     msg.GameID,
-			"playeID":    msg.PlayerID,
+			"playerID":   msg.PlayerID,
 			"playerName": players[msg.PlayerID].Name,
 			"action":     msg.Action,
 		}
