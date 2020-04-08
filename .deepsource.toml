@@ -1,0 +1,12 @@
+version = 1
+
+[[analyzers]]
+name = "go"
+enabled = true
+
+  [analyzers.meta]
+  import_path = "github.com/christopher-wong/bzzz-api"
+
+[[analyzers]]
+name = "docker"
+enabled = true
