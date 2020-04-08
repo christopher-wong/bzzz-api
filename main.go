@@ -50,13 +50,15 @@ func init() {
 
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/", IndexHandler).Methods("GET")
-	r.HandleFunc("/host", HostCreateHandler).Methods("POST")
-	r.HandleFunc("/host/{id}", HostListenHandler).Methods("GET")
-	r.HandleFunc("/host/{id}/reset", HostResetHandler).Methods("POST")
-	r.HandleFunc("/host/{id}/lock", HostLockHandler).Methods("POST")
-	r.HandleFunc("/play/{id}", PlayHandler).Methods("GET")
-	r.HandleFunc("/play/{id}/buzz", BuzzHandler).Methods("POST")
+
+	r.HandleFunc("/api/host", HostCreateHandler).Methods("POST")
+	r.HandleFunc("/api/host/{id}", HostListenHandler).Methods("GET")
+	r.HandleFunc("/api/host/{id}/reset", HostResetHandler).Methods("POST")
+	r.HandleFunc("/api/host/{id}/lock", HostLockHandler).Methods("POST")
+	r.HandleFunc("/api/play/{id}", PlayHandler).Methods("GET")
+	r.HandleFunc("/api/play/{id}/buzz", BuzzHandler).Methods("POST")
+
+	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./build"))))
 
 	corsH := handlers.CORS(handlers.AllowedOrigins([]string{"*"}))
 
