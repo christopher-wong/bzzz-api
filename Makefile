@@ -1,6 +1,6 @@
 .PHONY: all run
 
-VERSION=0.0.2
+VERSION=0.0.3
 
 all:
 	docker build -t bzzz-api:${VERSION} .
