@@ -61,7 +61,7 @@ func main() {
 	corsH := handlers.CORS(handlers.AllowedOrigins([]string{"*"}))
 
 	go func() {
-		http.ListenAndServeTLS(":8080", "server.crt", "server.key", corsH(r))
+		log.Fatal(http.ListenAndServeTLS(":8080", "server.crt", "server.key", corsH(r)))
 	}()
 
 	// broadcast to clients
@@ -71,7 +71,7 @@ func main() {
 		// for the given game id
 		for {
 			select {
-			case msg, _ := <-serverCh:
+			case msg := <-serverCh:
 				log.Printf("client msg received: %v", msg)
 				for _, clientCh := range games[msg.GameID] {
 					clientCh <- msg
@@ -90,7 +90,7 @@ func main() {
 	go func() {
 		for {
 			select {
-			case msg, _ := <-hostCh:
+			case msg := <-hostCh:
 				log.Printf("host msg received: %v", msg)
 
 				hosts[msg.GameID] <- msg
@@ -113,7 +113,10 @@ func BuzzHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("buzz detected")
 
 	var clientMsg message
-	json.NewDecoder(r.Body).Decode(&clientMsg)
+	err := json.NewDecoder(r.Body).Decode(&clientMsg)
+	if err != nil {
+		log.Fatal("failed to encode json message", err.Error())
+	}
 	log.Printf("%v", clientMsg)
 
 	serverCh <- clientMsg
@@ -197,7 +200,11 @@ func HostCreateHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("creating game: %d", gameCode)
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]int{"gameCode": gameCode})
+	err := json.NewEncoder(w).Encode(map[string]int{"gameCode": gameCode})
+	if err != nil {
+		http.Error(w, "failed to encode JSON response", http.StatusInternalServerError)
+		return
+	}
 }
 
 // PlayHandler establishes a stream and sends SSE to the client with
