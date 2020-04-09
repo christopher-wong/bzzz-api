@@ -4,10 +4,10 @@ metadata:
   name: bzzz-api
   namespace: default
   annotations:
-    service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "https"
     service.beta.kubernetes.io/do-loadbalancer-algorithm: "least_connections"
     service.beta.kubernetes.io/do-loadbalancer-tls-ports: "443"
-    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "b0a1c125-6f4d-4e11-be00-5c118e3bd8ab"
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "7fe04fc7-d6fa-47e6-932e-4657f79e471c"
     service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https: "true"
 spec:
   selector:

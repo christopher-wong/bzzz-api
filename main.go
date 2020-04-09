@@ -63,7 +63,7 @@ func main() {
 	corsH := handlers.CORS(handlers.AllowedOrigins([]string{"*"}))
 
 	go func() {
-		log.Fatal(http.ListenAndServeTLS(":8080", "server.crt", "server.key", corsH(r)))
+		log.Fatal(http.ListenAndServeTLS(":8080", "fullchain.pem", "privkey.pem", corsH(r)))
 	}()
 
 	// broadcast to clients
