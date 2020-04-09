@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -63,7 +64,13 @@ func main() {
 	corsH := handlers.CORS(handlers.AllowedOrigins([]string{"*"}))
 
 	go func() {
-		log.Fatal(http.ListenAndServeTLS(":8080", "fullchain.pem", "privkey.pem", corsH(r)))
+
+		if os.Getenv("MODE") == "dev" {
+			fmt.Println("dev mode. using self-signed cert")
+			log.Fatal(http.ListenAndServeTLS(":8080", "local.crt", "local.key", corsH(r)))
+		} else {
+			log.Fatal(http.ListenAndServeTLS(":8080", "fullchain.pem", "privkey.pem", corsH(r)))
+		}
 	}()
 
 	// broadcast to clients

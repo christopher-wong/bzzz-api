@@ -1,6 +1,6 @@
 .PHONY: all run
 
-VERSION=0.0.5
+VERSION=0.0.6
 
 all:
 	docker build -t bzzz-api:${VERSION} .
@@ -14,4 +14,4 @@ run:
 	docker run -p 8080:8080 bzzz-api:${VERSION}
 
 local:
-	go run main.go
+	MODE=dev go run main.go
